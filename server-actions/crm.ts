@@ -9,8 +9,20 @@ export type CrmActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
 
+function cleanEmptyStrings(obj: any) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const cleaned = { ...obj };
+  for (const key of Object.keys(cleaned)) {
+    if (cleaned[key] === '') {
+      cleaned[key] = null;
+    }
+  }
+  return cleaned;
+}
+
 export async function saveStudentAction(input: unknown): Promise<CrmActionResult> {
-  const parsed = studentFormSchema.safeParse(input);
+  const cleaned = cleanEmptyStrings(input);
+  const parsed = studentFormSchema.safeParse(cleaned);
   if (!parsed.success) {
     return { ok: false, error: 'Invalid student data', fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -51,7 +63,8 @@ export async function exportStudentsAction(): Promise<CrmActionResult<{ csv: str
 }
 
 export async function saveApplicationAction(input: unknown): Promise<CrmActionResult> {
-  const parsed = applicationFormSchema.safeParse(input);
+  const cleaned = cleanEmptyStrings(input);
+  const parsed = applicationFormSchema.safeParse(cleaned);
   if (!parsed.success) {
     return { ok: false, error: 'Invalid application data', fieldErrors: parsed.error.flatten().fieldErrors };
   }
@@ -88,7 +101,8 @@ export async function deleteApplicationAction(applicationId: string): Promise<Cr
 }
 
 export async function saveTaskAction(input: unknown): Promise<CrmActionResult> {
-  const parsed = taskFormSchema.safeParse(input);
+  const cleaned = cleanEmptyStrings(input);
+  const parsed = taskFormSchema.safeParse(cleaned);
   if (!parsed.success) {
     return { ok: false, error: 'Invalid task data', fieldErrors: parsed.error.flatten().fieldErrors };
   }

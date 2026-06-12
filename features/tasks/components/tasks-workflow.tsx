@@ -64,13 +64,21 @@ export function TasksWorkflow() {
       alert("Task title is required.");
       return;
     }
+    const toIsoString = (val: string) => {
+      if (!val) return null;
+      const date = new Date(val);
+      return isNaN(date.getTime()) ? null : date.toISOString();
+    };
     startTransition(async () => {
-      await saveTaskAction({
+      const result = await saveTaskAction({
         ...form,
-        // Convert dates to ISO standard if set
-        dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
-        reminderAt: form.reminderAt ? new Date(form.reminderAt).toISOString() : null,
+        dueAt: toIsoString(form.dueAt),
+        reminderAt: toIsoString(form.reminderAt),
       });
+      if (!result.ok) {
+        alert(result.error || "Failed to save task.");
+        return;
+      }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     });

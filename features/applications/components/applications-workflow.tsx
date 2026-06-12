@@ -85,7 +85,11 @@ export function ApplicationsWorkflow() {
       return;
     }
     startTransition(async () => {
-      await saveApplicationAction(form);
+      const result = await saveApplicationAction(form);
+      if (!result.ok) {
+        alert(result.error || "Failed to save application.");
+        return;
+      }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['applications'] });
     });

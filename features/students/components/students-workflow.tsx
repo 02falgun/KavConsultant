@@ -61,10 +61,14 @@ export function StudentsWorkflow() {
       return;
     }
     startTransition(async () => {
-      await saveStudentAction({
+      const result = await saveStudentAction({
         ...form,
         tags: form.tagsText ? form.tagsText.split(',').map((tag) => tag.trim()).filter(Boolean) : [],
       });
+      if (!result.ok) {
+        alert(result.error || "Failed to save student record.");
+        return;
+      }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['students'] });
     });
