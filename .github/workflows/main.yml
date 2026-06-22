@@ -33,6 +33,9 @@ jobs:
       - name: Run TypeScript Compile Check
         run: npm run typecheck
 
+      - name: Run Automated Tests
+        run: npm run test
+
   deploy-staging:
     name: Deploy to Staging
     needs: lint-and-typecheck
