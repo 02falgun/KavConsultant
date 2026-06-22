@@ -10,6 +10,7 @@ import {
   listAuditLogs,
   listNotifications,
   listStudents,
+  listStudentsCursor,
   listTasks,
   markNotificationRead,
   moveApplicationStage,
@@ -28,6 +29,18 @@ export async function getStudentsPage(params: { page: number; pageSize: number; 
   const context = await requireWorkspaceContext();
   return listStudents({ tenantId: context.tenantId, ...params });
 }
+
+export async function getStudentsPageCursor(params: {
+  pageSize: number;
+  cursorCreatedAt?: string;
+  cursorId?: string;
+  search?: string;
+  status?: string;
+}) {
+  const context = await requireWorkspaceContext();
+  return listStudentsCursor({ tenantId: context.tenantId, ...params });
+}
+
 
 export async function createOrUpdateStudent(input: Record<string, unknown>) {
   const context = await requireWorkspaceContext();

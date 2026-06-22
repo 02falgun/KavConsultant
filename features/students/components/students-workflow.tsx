@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useStudents } from '@/hooks/use-students';
+import { useStudentsInfinite } from '@/hooks/use-students';
 import { useCrmStore } from '@/store/crm';
 import { deleteStudentAction, exportStudentsAction, importStudentsAction, saveStudentAction } from '@/server-actions/crm';
 import type { StudentRecord } from '@/lib/types/crm';
@@ -48,13 +48,11 @@ export function StudentsWorkflow() {
   const setSearch = useCrmStore((state) => state.setStudentSearch);
   
   // Pagination & Filtering state
-  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   
-  const { data, isLoading } = useStudents();
-  const students = data?.items ?? [];
-  const totalCount = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / 20));
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useStudentsInfinite({ search, status: statusFilter });
+  const students = data?.pages.flatMap((page) => page.items) ?? [];
+
 
   const handleSubmit = () => {
     if (!form.fullName) {
@@ -248,27 +246,23 @@ export function StudentsWorkflow() {
                   tagsText: (student.tags ?? []).join(', ')
                 })}
                 onDelete={handleDelete}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                fetchNextPage={fetchNextPage}
               />
             )}
 
-            {/* Pagination Panel */}
-            {totalCount > 20 && (
-              <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400">
-                  Showing {(page - 1) * 20 + 1} - {Math.min(page * 20, totalCount)} of {totalCount} students
+            {/* Infinite Scroll Status */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-450 dark:text-slate-400">
+              <span>
+                Loaded {students.length} student profiles
+              </span>
+              {isFetchingNextPage && (
+                <span className="animate-pulse text-indigo-550 dark:text-indigo-400 font-semibold">
+                  Loading more...
                 </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1} className="h-8 gap-1">
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    <span>Prev</span>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page === totalPages} className="h-8 gap-1">
-                    <span>Next</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

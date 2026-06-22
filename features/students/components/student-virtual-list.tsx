@@ -10,9 +10,19 @@ interface StudentVirtualListProps {
   students: (StudentRecord & Record<string, any>)[];
   onEdit: (student: StudentRecord & Record<string, any>) => void;
   onDelete: (id: string) => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+  fetchNextPage?: () => void;
 }
 
-export function StudentVirtualList({ students, onEdit, onDelete }: StudentVirtualListProps) {
+export function StudentVirtualList({
+  students,
+  onEdit,
+  onDelete,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+}: StudentVirtualListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
   // Configure row virtualizer
@@ -22,6 +32,23 @@ export function StudentVirtualList({ students, onEdit, onDelete }: StudentVirtua
     estimateSize: () => 72, // Estimated height of each row in px
     overscan: 6, // Renders 6 items outside the view area to guarantee smooth scroll transitions
   });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
+  React.useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+
+    if (
+      lastItem.index >= students.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      fetchNextPage
+    ) {
+      fetchNextPage();
+    }
+  }, [virtualItems, students.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
 
   return (
     <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950">
