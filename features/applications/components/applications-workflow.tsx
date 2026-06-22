@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { APPLICATION_PIPELINE_STAGES, applicationStageLabel, type ApplicationPipelineStage, getDatabaseStatusForStage } from '@/lib/workflow/stages';
-import { useApplications } from '@/hooks/use-applications';
+import { useApplicationsInfinite } from '@/hooks/use-applications';
 import { useStudents } from '@/hooks/use-students';
 import { useUniversities } from '@/hooks/use-universities';
 import { usePrograms } from '@/hooks/use-programs';
@@ -53,18 +53,19 @@ export function ApplicationsWorkflow() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
   
   const search = useCrmStore((state) => state.applicationSearch);
   const setSearch = useCrmStore((state) => state.setApplicationSearch);
   const selectedStage = useCrmStore((state) => state.selectedApplicationStage);
   const setSelectedStage = useCrmStore((state) => state.setSelectedApplicationStage);
   
-  const { data, isLoading } = useApplications();
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useApplicationsInfinite();
   const { data: studentsData } = useStudents();
   const { data: unis } = useUniversities();
   const { data: progs } = usePrograms();
 
-  const applications = data?.items ?? [];
+  const applications = data?.pages.flatMap((page) => page.items) ?? [];
   const studentsList = studentsData?.items ?? [];
 
   const filteredApps = useMemo(() => {
@@ -87,12 +88,14 @@ export function ApplicationsWorkflow() {
     return result as Record<ApplicationPipelineStage, ApplicationRecord[]>;
   }, [filteredApps]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!form.studentId || !form.universityId || !form.programId || !form.applicationNumber) {
       alert("Please enter Student ID, University ID, Program ID, and Application Number.");
       return;
     }
-    startTransition(async () => {
+    setSaving(true);
+    try {
       const result = await saveApplicationAction(form);
       if (!result.ok) {
         alert(result.error || "Failed to save application.");
@@ -100,7 +103,9 @@ export function ApplicationsWorkflow() {
       }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['applications'] });
-    });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateStageMutation = useMutation({
@@ -208,6 +213,7 @@ export function ApplicationsWorkflow() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
               placeholder="Search apps..."
               className="pl-9 h-9 text-xs rounded-lg"
             />
@@ -224,6 +230,7 @@ export function ApplicationsWorkflow() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
+          <form onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-4">
             <Field label="Select Student">
               <select
@@ -294,11 +301,12 @@ export function ApplicationsWorkflow() {
             <Field label="Notes" className="md:col-span-4"><Input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="E.g. transcripts uploaded, awaiting reference letter" /></Field>
           </div>
           <div className="mt-4 flex gap-3 justify-end border-t border-slate-100 dark:border-slate-900 pt-4">
-            <Button type="button" onClick={handleSubmit} disabled={pending} className="px-6">
+            <Button type="submit" loading={saving} className="px-6">
               {form.id ? 'Update Application' : 'Create Application'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setForm(emptyForm)}>Reset</Button>
+            <Button type="button" variant="ghost" disabled={saving} onClick={() => setForm(emptyForm)}>Reset</Button>
           </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -477,6 +485,14 @@ export function ApplicationsWorkflow() {
             </table>
           </div>
         </Card>
+      )}
+
+      {!isLoading && hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <Button type="button" variant="outline" loading={isFetchingNextPage} onClick={() => fetchNextPage()} className="gap-2">
+            Load more
+          </Button>
+        </div>
       )}
     </div>
   );

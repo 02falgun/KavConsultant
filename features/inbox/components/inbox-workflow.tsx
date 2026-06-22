@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useInbox } from '@/hooks/use-inbox';
+import { useInboxInfinite } from '@/hooks/use-inbox-infinite';
 import { useCrmStore } from '@/store/crm';
 import { logCrmActivityAction, assignStudentCounsellorAction } from '@/server-actions/crm';
 
@@ -36,11 +36,11 @@ export function InboxWorkflow() {
   const router = useRouter();
   const filter = useCrmStore((state) => state.inboxFilter);
   const setFilter = useCrmStore((state) => state.setInboxFilter);
-  const { data, isLoading } = useInbox();
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInboxInfinite();
   const [pending, startTransition] = useTransition();
   const queryClient = useQueryClient();
 
-  const items = data?.items ?? [];
+  const items = data?.pages.flatMap((page) => page.items) ?? [];
 
   const handleLogCall = (itemId: string, itemType: 'student' | 'task', title: string) => {
     startTransition(async () => {
@@ -195,6 +195,7 @@ export function InboxWorkflow() {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={pending}
                       onClick={() => handleLogCall(item.id, item.type, item.student_name || item.title)}
                       className="rounded-lg h-8 text-xs flex items-center gap-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950"
                     >
@@ -205,6 +206,7 @@ export function InboxWorkflow() {
                     <Button
                       size="sm"
                       variant="outline"
+                      disabled={pending}
                       onClick={() => handleLogWhatsApp(item.id, item.type, item.student_name || item.title)}
                       className="rounded-lg h-8 text-xs flex items-center gap-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950"
                     >
@@ -216,6 +218,7 @@ export function InboxWorkflow() {
                       <Button
                         size="sm"
                         variant="outline"
+                        disabled={pending}
                         onClick={() => handleAssign(item.id, item.student_name || item.title)}
                         className="rounded-lg h-8 text-xs flex items-center gap-1.5 hover:bg-purple-50 dark:hover:bg-purple-950"
                       >
@@ -240,6 +243,14 @@ export function InboxWorkflow() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {!isLoading && items.length > 0 && hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <Button type="button" variant="outline" loading={isFetchingNextPage} onClick={() => fetchNextPage()} className="gap-2">
+            Load more
+          </Button>
         </div>
       )}
     </div>

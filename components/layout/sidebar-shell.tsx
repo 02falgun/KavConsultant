@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -31,6 +31,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 type SidebarShellProps = {
@@ -56,6 +57,12 @@ export function SidebarShell({ children, user, tenant }: SidebarShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNavigatingTo(null);
+  }, [pathname]);
 
   useEffect(() => {
     // Load theme setting
@@ -118,17 +125,38 @@ export function SidebarShell({ children, user, tenant }: SidebarShellProps) {
 
   const NavLink = ({ item, isSettings = false }: { item: typeof navigation[0]; isSettings?: boolean }) => {
     const active = pathname === item.href || pathname.startsWith(item.href + '/');
+    const loading = navigatingTo === item.href && isPending;
+
+    const handleNavigate = (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // Preserve native behavior for new-tab / modified clicks.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      setMobileOpen(false);
+      if (active) return;
+      setNavigatingTo(item.href);
+      startTransition(() => {
+        router.push(item.href);
+      });
+    };
+
     return (
       <Link
         href={item.href}
-        onClick={() => setMobileOpen(false)}
+        onClick={handleNavigate}
+        aria-busy={loading}
         className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
           active
             ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400'
             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100'
         }`}
       >
-        <item.icon className="h-5 w-5 flex-shrink-0" />
+        {loading ? (
+          <Spinner className="h-5 w-5 flex-shrink-0" />
+        ) : (
+          <item.icon className="h-5 w-5 flex-shrink-0" />
+        )}
         {(!collapsed || mobileOpen) && <span className="truncate">{item.name}</span>}
       </Link>
     );

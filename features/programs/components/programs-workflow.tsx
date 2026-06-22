@@ -69,7 +69,8 @@ export function ProgramsWorkflow() {
 
   const [search, setSearch] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!form.name || !form.universityName) return;
 
     if (form.id) {
@@ -114,7 +115,8 @@ export function ProgramsWorkflow() {
               <span>{form.id ? 'Edit Course Details' : 'Register New Course'}</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs uppercase font-extrabold text-slate-400">Course / Program Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="E.g. MSc Data Science" />
@@ -165,10 +167,11 @@ export function ProgramsWorkflow() {
             </div>
 
             <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
-              <Button type="button" onClick={handleSubmit} className="w-full h-10">
+              <Button type="submit" className="w-full h-10">
                 {form.id ? 'Save Program' : 'Register Program'}
               </Button>
             </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -178,7 +181,7 @@ export function ProgramsWorkflow() {
             <CardTitle className="text-md font-bold">Programs List</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search program or university..." className="pl-9 h-9 text-xs" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }} placeholder="Search program or university..." className="pl-9 h-9 text-xs" />
             </div>
           </CardHeader>
           <CardContent className="p-0">

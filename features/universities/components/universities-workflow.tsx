@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from 'react';
+import React, { useState } from 'react';
 import {
   GraduationCap,
   Search,
@@ -70,9 +70,9 @@ export function UniversitiesWorkflow() {
   });
 
   const [search, setSearch] = useState('');
-  const [pending, startTransition] = useTransition();
 
-  const handleSubmit = () => {
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!form.name || !form.country) return;
     
     if (form.id) {
@@ -117,7 +117,8 @@ export function UniversitiesWorkflow() {
               <span>{form.id ? 'Edit Partner Details' : 'Register Partner University'}</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs uppercase font-extrabold text-slate-400">University Name</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="E.g. Harvard University" />
@@ -159,7 +160,7 @@ export function UniversitiesWorkflow() {
             </div>
 
             <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
-              <Button type="button" onClick={handleSubmit} className="flex-1">
+              <Button type="submit" className="flex-1">
                 {form.id ? 'Save Changes' : 'Register Partner'}
               </Button>
               {form.id && (
@@ -168,6 +169,7 @@ export function UniversitiesWorkflow() {
                 </Button>
               )}
             </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -177,7 +179,7 @@ export function UniversitiesWorkflow() {
             <CardTitle className="text-md font-bold">Partner Institutions</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or country..." className="pl-9 h-9 text-xs" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }} placeholder="Search name or country..." className="pl-9 h-9 text-xs" />
             </div>
           </CardHeader>
           <CardContent className="p-0">

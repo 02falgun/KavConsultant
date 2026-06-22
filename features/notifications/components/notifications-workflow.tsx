@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNotifications } from '@/hooks/use-notifications';
+import { useNotificationsInfinite } from '@/hooks/use-notifications';
 import { useNotificationsRealtime } from '@/features/notifications/hooks/use-notifications-realtime';
 import { readNotificationAction } from '@/server-actions/crm';
 
@@ -56,10 +56,10 @@ export function NotificationsWorkflow() {
   const queryClient = useQueryClient();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [pending, startTransition] = useTransition();
-  const { data, isLoading } = useNotifications();
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotificationsInfinite();
   useNotificationsRealtime();
 
-  const notifications = data?.items ?? [];
+  const notifications = data?.pages.flatMap((page) => page.items) ?? [];
   const filtered = unreadOnly ? notifications.filter((n: any) => !n.read_at) : notifications;
   const unreadCount = notifications.filter((n: any) => !n.read_at).length;
 
@@ -194,6 +194,7 @@ export function NotificationsWorkflow() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      disabled={pending}
                       onClick={() => markRead(notification.id)}
                       className="h-8 w-8 text-slate-400 hover:text-indigo-600 rounded-lg"
                       title="Mark as read"
@@ -205,6 +206,14 @@ export function NotificationsWorkflow() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {!isLoading && notifications.length > 0 && hasNextPage && (
+        <div className="flex justify-center">
+          <Button type="button" variant="outline" loading={isFetchingNextPage} onClick={() => fetchNextPage()} className="gap-2">
+            Load more
+          </Button>
         </div>
       )}
     </div>

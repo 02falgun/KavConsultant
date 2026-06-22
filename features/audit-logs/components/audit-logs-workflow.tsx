@@ -15,11 +15,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useAuditLogs } from '@/hooks/use-audit-logs';
+import { useAuditLogsInfinite } from '@/hooks/use-audit-logs';
 
 export function AuditLogsWorkflow() {
-  const { data, isLoading } = useAuditLogs();
-  const logs = data?.items ?? [];
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useAuditLogsInfinite();
+  const logs = data?.pages.flatMap((page) => page.items) ?? [];
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchEntity, setSearchEntity] = useState('');
@@ -71,6 +71,7 @@ export function AuditLogsWorkflow() {
           <Input
             value={searchEntity}
             onChange={(e) => setSearchEntity(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setSearchEntity(''); }}
             placeholder="Filter by entity type (e.g. students, applications)..."
             className="pl-9 h-9 text-xs rounded-lg"
           />
@@ -204,6 +205,14 @@ export function AuditLogsWorkflow() {
           )}
         </CardContent>
       </Card>
+
+      {!isLoading && logs.length > 0 && hasNextPage && (
+        <div className="flex justify-center">
+          <Button type="button" variant="outline" loading={isFetchingNextPage} onClick={() => fetchNextPage()} className="gap-2">
+            Load more
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

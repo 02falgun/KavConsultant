@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useTasks } from '@/hooks/use-tasks';
+import { useTasksInfinite } from '@/hooks/use-tasks';
 import { useCrmStore } from '@/store/crm';
 import { saveTaskAction, deleteTaskAction } from '@/server-actions/crm';
 
@@ -41,13 +41,14 @@ export function TasksWorkflow() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
   const viewMode = useCrmStore((state) => state.taskViewMode);
   const setViewMode = useCrmStore((state) => state.setTaskViewMode);
   const scope = useCrmStore((state) => state.taskScope);
   const setScope = useCrmStore((state) => state.setTaskScope);
   
-  const { data, isLoading } = useTasks();
-  const tasks = data?.items ?? [];
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useTasksInfinite();
+  const tasks = data?.pages.flatMap((page) => page.items) ?? [];
 
   const byDate = useMemo(() => {
     const grouped: Record<string, any[]> = {};
@@ -59,7 +60,8 @@ export function TasksWorkflow() {
     return grouped;
   }, [tasks]);
 
-  const submit = () => {
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!form.title) {
       alert("Task title is required.");
       return;
@@ -69,7 +71,8 @@ export function TasksWorkflow() {
       const date = new Date(val);
       return isNaN(date.getTime()) ? null : date.toISOString();
     };
-    startTransition(async () => {
+    setSaving(true);
+    try {
       const result = await saveTaskAction({
         ...form,
         dueAt: toIsoString(form.dueAt),
@@ -81,7 +84,9 @@ export function TasksWorkflow() {
       }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = (taskId: string) => {
@@ -181,6 +186,7 @@ export function TasksWorkflow() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
+          <form onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-4">
             <Field label="Title" className="md:col-span-2">
               <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="E.g. Call student for visa interview details" />
@@ -240,11 +246,12 @@ export function TasksWorkflow() {
           </div>
 
           <div className="mt-4 flex gap-3 justify-end border-t border-slate-100 dark:border-slate-900 pt-4">
-            <Button type="button" onClick={submit} disabled={pending} className="px-6">
+            <Button type="submit" loading={saving} className="px-6">
               {form.id ? 'Save Changes' : 'Create Task'}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setForm(emptyForm)}>Reset</Button>
+            <Button type="button" variant="ghost" disabled={saving} onClick={() => setForm(emptyForm)}>Reset</Button>
           </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -404,6 +411,14 @@ export function TasksWorkflow() {
             })}
           </div>
         </Card>
+      )}
+
+      {!isLoading && tasks.length > 0 && hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <Button type="button" variant="outline" loading={isFetchingNextPage} onClick={() => fetchNextPage()} className="gap-2">
+            Load more
+          </Button>
+        </div>
       )}
     </div>
   );

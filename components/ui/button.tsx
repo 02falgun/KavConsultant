@@ -1,14 +1,17 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils/cn';
+import { Spinner } from '@/components/ui/spinner';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'default' | 'secondary' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  loading?: boolean;
 }
 
-export function Button({ className, variant = 'default', size = 'default', ...props }: ButtonProps) {
+export function Button({ className, variant = 'default', size = 'default', loading = false, disabled, children, ...props }: ButtonProps) {
   return (
     <button
+      disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:pointer-events-none disabled:opacity-50',
         variant === 'default' && 'bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950',
@@ -22,6 +25,9 @@ export function Button({ className, variant = 'default', size = 'default', ...pr
         className
       )}
       {...props}
-    />
+    >
+      {loading ? <Spinner className={cn('h-4 w-4', size !== 'icon' && children ? 'mr-2' : '')} /> : null}
+      {children}
+    </button>
   );
 }

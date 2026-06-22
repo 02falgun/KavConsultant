@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { useStudentsInfinite } from '@/hooks/use-students';
 import { useCrmStore } from '@/store/crm';
 import { deleteStudentAction, exportStudentsAction, importStudentsAction, saveStudentAction } from '@/server-actions/crm';
@@ -44,6 +45,7 @@ export function StudentsWorkflow() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
   const search = useCrmStore((state) => state.studentSearch);
   const setSearch = useCrmStore((state) => state.setStudentSearch);
   
@@ -54,12 +56,14 @@ export function StudentsWorkflow() {
   const students = data?.pages.flatMap((page) => page.items) ?? [];
 
 
-  const handleSubmit = () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!form.fullName) {
       alert("Student name is required.");
       return;
     }
-    startTransition(async () => {
+    setSaving(true);
+    try {
       const result = await saveStudentAction({
         ...form,
         tags: form.tagsText ? form.tagsText.split(',').map((tag) => tag.trim()).filter(Boolean) : [],
@@ -70,7 +74,9 @@ export function StudentsWorkflow() {
       }
       setForm(emptyForm);
       await queryClient.invalidateQueries({ queryKey: ['students'] });
-    });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = (studentId: string) => {
@@ -142,7 +148,8 @@ export function StudentsWorkflow() {
               <span>{form.id ? 'Edit Student Details' : 'Register New Student'}</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Full name">
               <Input value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} placeholder="John Doe" />
             </Field>
@@ -190,15 +197,16 @@ export function StudentsWorkflow() {
             </Field>
             
             <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
-              <Button type="button" onClick={handleSubmit} disabled={pending} className="flex-1">
+              <Button type="submit" loading={saving} className="flex-1">
                 {form.id ? 'Save Changes' : 'Register'}
               </Button>
               {form.id && (
-                <Button type="button" variant="ghost" onClick={() => setForm(emptyForm)}>
+                <Button type="button" variant="ghost" disabled={saving} onClick={() => setForm(emptyForm)}>
                   Cancel
                 </Button>
               )}
             </div>
+            </form>
           </CardContent>
         </Card>
 
@@ -211,7 +219,7 @@ export function StudentsWorkflow() {
             </CardTitle>
             <div className="flex items-center gap-2 w-full sm:w-64 relative">
               <Search className="absolute left-3 h-4 w-4 text-slate-400" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search students..." className="pl-9 h-9 text-xs rounded-lg" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === 'Escape') setSearch(''); }} placeholder="Search students..." className="pl-9 h-9 text-xs rounded-lg" />
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -258,7 +266,8 @@ export function StudentsWorkflow() {
                 Loaded {students.length} student profiles
               </span>
               {isFetchingNextPage && (
-                <span className="animate-pulse text-indigo-550 dark:text-indigo-400 font-semibold">
+                <span className="flex items-center gap-1.5 text-indigo-550 dark:text-indigo-400 font-semibold">
+                  <Spinner className="h-3.5 w-3.5" />
                   Loading more...
                 </span>
               )}
