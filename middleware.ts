@@ -65,7 +65,8 @@ export async function middleware(request: NextRequest) {
     '/inbox',
     '/notifications',
     '/settings',
-    '/audit-logs'
+    '/audit-logs',
+    '/manual'
   ];
   const isProtectedRoute = protectedRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
 

@@ -28,7 +28,9 @@ import {
   ChevronRight,
   Building2,
   CreditCard,
-  UserCheck
+  UserCheck,
+  UserCircle,
+  BookOpenCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -111,9 +113,11 @@ export function SidebarShell({ children, user, tenant }: SidebarShellProps) {
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'AI Insights', href: '/ai-insights', icon: Sparkles },
     { name: 'Audit Logs', href: '/audit-logs', icon: History, role: ['admin', 'manager'] },
+    { name: 'User Manual', href: '/manual', icon: BookOpenCheck },
   ];
 
   const settingsNavigation = [
+    { name: 'Profile', href: '/settings/profile', icon: UserCircle },
     { name: 'General', href: '/settings/general', icon: Settings },
     { name: 'Team Management', href: '/settings/team', icon: UserCheck },
     { name: 'Branches', href: '/settings/branches', icon: Building2 },
