@@ -21,6 +21,12 @@ async function run() {
 
   const { data: tenants, error: tenantsErr } = await supabase.from('tenants').select('*');
   console.log('Tenants:', tenantsErr ? tenantsErr.message : tenants);
+
+  const { data: universities, error: uniErr } = await supabase.from('universities').select('*');
+  console.log('Universities:', uniErr ? uniErr.message : universities);
+
+  const { data: programs, error: progErr } = await supabase.from('programs').select('*');
+  console.log('Programs:', progErr ? progErr.message : programs);
 }
 
 run();

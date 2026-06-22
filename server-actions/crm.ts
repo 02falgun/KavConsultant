@@ -17,6 +17,9 @@ function cleanEmptyStrings(obj: any) {
       cleaned[key] = null;
     }
   }
+  if (cleaned.id === null || cleaned.id === '') {
+    delete cleaned.id;
+  }
   return cleaned;
 }
 
@@ -69,23 +72,28 @@ export async function saveApplicationAction(input: unknown): Promise<CrmActionRe
     return { ok: false, error: 'Invalid application data', fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  const data = await createOrUpdateApplication({
-    id: parsed.data.id,
-    student_id: parsed.data.studentId,
-    university_id: parsed.data.universityId,
-    program_id: parsed.data.programId,
-    application_number: parsed.data.applicationNumber,
-    stage: parsed.data.stage,
-    intake_term: parsed.data.intakeTerm || null,
-    intake_year: parsed.data.intakeYear || null,
-    fee_amount: parsed.data.feeAmount || null,
-    notes: parsed.data.notes || null,
-    assigned_counsellor_id: parsed.data.assignedCounsellorId || null,
-    branch_id: parsed.data.branchId || null,
-  });
+  try {
+    const data = await createOrUpdateApplication({
+      id: parsed.data.id,
+      student_id: parsed.data.studentId,
+      university_id: parsed.data.universityId,
+      program_id: parsed.data.programId,
+      application_number: parsed.data.applicationNumber,
+      stage: parsed.data.stage,
+      intake_term: parsed.data.intakeTerm || null,
+      intake_year: parsed.data.intakeYear || null,
+      fee_amount: parsed.data.feeAmount || null,
+      notes: parsed.data.notes || null,
+      assigned_counsellor_id: parsed.data.assignedCounsellorId || null,
+      branch_id: parsed.data.branchId || null,
+    });
 
-  revalidatePath('/applications');
-  return { ok: true, data };
+    revalidatePath('/applications');
+    return { ok: true, data };
+  } catch (error: any) {
+    console.error('Error saving application:', error);
+    return { ok: false, error: error.message || 'Failed to save application to database.' };
+  }
 }
 
 export async function updateApplicationStageAction(applicationId: string, stage: ApplicationPipelineStage): Promise<CrmActionResult> {

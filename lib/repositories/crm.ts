@@ -49,6 +49,62 @@ export async function listStudents(params: {
   return { items: (data ?? []) as any[], count: count ?? 0, page: params.page, pageSize: params.pageSize } satisfies PageResult<any>;
 }
 
+export async function listStudentsCursor(params: {
+  tenantId: string;
+  pageSize: number;
+  cursorCreatedAt?: string;
+  cursorId?: string;
+  search?: string;
+  status?: string;
+}) {
+  const admin = createSupabaseAdminClient();
+  const search = normalizeSearch(params.search);
+
+  let query = admin
+    .from('students')
+    .select('*')
+    .eq('tenant_id', params.tenantId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(params.pageSize + 1);
+
+  if (params.cursorCreatedAt && params.cursorId) {
+    query = query.or(
+      `created_at.lt.${params.cursorCreatedAt},and(created_at.eq.${params.cursorCreatedAt},id.lt.${params.cursorId})`
+    );
+  }
+
+  if (search) {
+    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+  }
+
+  if (params.status) {
+    query = query.eq('status', params.status);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const items = data ?? [];
+  const hasNextPage = items.length > params.pageSize;
+  const paginatedItems = hasNextPage ? items.slice(0, params.pageSize) : items;
+
+  let nextCursor = null;
+  if (hasNextPage && paginatedItems.length > 0) {
+    const lastItem = paginatedItems[paginatedItems.length - 1];
+    nextCursor = {
+      createdAt: lastItem.created_at,
+      id: lastItem.id,
+    };
+  }
+
+  return {
+    items: paginatedItems,
+    nextCursor,
+  };
+}
+
 export async function upsertStudent(input: {
   tenantId: string;
   student: Record<string, unknown>;
@@ -303,3 +359,28 @@ export async function updateStudentCounsellor(params: {
   if (error) throw error;
   return data;
 }
+
+export async function listUniversities(params: { tenantId: string }) {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from('universities')
+    .select('*')
+    .eq('tenant_id', params.tenantId)
+    .is('deleted_at', null)
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listPrograms(params: { tenantId: string }) {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from('programs')
+    .select('*, universities(name)')
+    .eq('tenant_id', params.tenantId)
+    .is('deleted_at', null)
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+

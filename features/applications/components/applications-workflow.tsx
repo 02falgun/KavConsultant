@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useMemo, useState, useTransition, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   FileText,
   Search,
@@ -23,8 +23,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { APPLICATION_PIPELINE_STAGES, applicationStageLabel, type ApplicationPipelineStage } from '@/lib/workflow/stages';
+import { APPLICATION_PIPELINE_STAGES, applicationStageLabel, type ApplicationPipelineStage, getDatabaseStatusForStage } from '@/lib/workflow/stages';
 import { useApplications } from '@/hooks/use-applications';
+import { useStudents } from '@/hooks/use-students';
+import { useUniversities } from '@/hooks/use-universities';
+import { usePrograms } from '@/hooks/use-programs';
 import { useCrmStore } from '@/store/crm';
 import { saveApplicationAction, updateApplicationStageAction, deleteApplicationAction } from '@/server-actions/crm';
 import type { ApplicationRecord } from '@/lib/types/crm';
@@ -57,7 +60,12 @@ export function ApplicationsWorkflow() {
   const setSelectedStage = useCrmStore((state) => state.setSelectedApplicationStage);
   
   const { data, isLoading } = useApplications();
+  const { data: studentsData } = useStudents();
+  const { data: unis } = useUniversities();
+  const { data: progs } = usePrograms();
+
   const applications = data?.items ?? [];
+  const studentsList = studentsData?.items ?? [];
 
   const filteredApps = useMemo(() => {
     return applications.filter((app: any) => {
@@ -95,13 +103,60 @@ export function ApplicationsWorkflow() {
     });
   };
 
+  const updateStageMutation = useMutation({
+    mutationFn: async ({ id, stage }: { id: string; stage: ApplicationPipelineStage }) => {
+      const result = await updateApplicationStageAction(id, stage);
+      if (!result.ok) {
+        throw new Error(result.error || 'Failed to update application stage');
+      }
+      return result.data;
+    },
+    onMutate: async ({ id, stage }) => {
+      // Cancel refetches
+      await queryClient.cancelQueries({ queryKey: ['applications'] });
+
+      // Snapshot current cache state
+      const previousQueries = queryClient.getQueriesData<any>({ queryKey: ['applications'] });
+
+      // Optimistically update caches
+      previousQueries.forEach(([queryKey]) => {
+        queryClient.setQueryData<any>(queryKey, (old: any) => {
+          if (!old || !old.items) return old;
+          return {
+            ...old,
+            items: old.items.map((item: any) => {
+              if (item.id === id) {
+                return {
+                  ...item,
+                  status: getDatabaseStatusForStage(stage),
+                  stage: stage
+                };
+              }
+              return item;
+            })
+          };
+        });
+      });
+
+      return { previousQueries };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, previousValue]) => {
+          queryClient.setQueryData(queryKey, previousValue);
+        });
+      }
+      alert(err.message || 'Failed to update application stage.');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+    }
+  });
+
   const handleDrop = (stage: ApplicationPipelineStage) => {
     if (!draggedId) return;
-    startTransition(async () => {
-      await updateApplicationStageAction(draggedId, stage);
-      await queryClient.invalidateQueries({ queryKey: ['applications'] });
-      setDraggedId(null);
-    });
+    updateStageMutation.mutate({ id: draggedId, stage });
+    setDraggedId(null);
   };
 
   const handleDelete = (appId: string) => {
@@ -170,10 +225,55 @@ export function ApplicationsWorkflow() {
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid gap-4 md:grid-cols-4">
-            <Field label="Student ID"><Input value={form.studentId} onChange={(event) => setForm({ ...form, studentId: event.target.value })} placeholder="Student UUID" /></Field>
-            <Field label="University ID"><Input value={form.universityId} onChange={(event) => setForm({ ...form, universityId: event.target.value })} placeholder="University UUID" /></Field>
-            <Field label="Program ID"><Input value={form.programId} onChange={(event) => setForm({ ...form, programId: event.target.value })} placeholder="Program UUID" /></Field>
-            <Field label="Application number"><Input value={form.applicationNumber} onChange={(event) => setForm({ ...form, applicationNumber: event.target.value })} placeholder="APP-10294" /></Field>
+            <Field label="Select Student">
+              <select
+                value={form.studentId}
+                onChange={(event) => setForm({ ...form, studentId: event.target.value })}
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose Student --</option>
+                {studentsList.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.full_name}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Select University">
+              <select
+                value={form.universityId}
+                onChange={(event) => setForm({ ...form, universityId: event.target.value })}
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose University --</option>
+                {(unis ?? []).map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.country})</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Select Program">
+              <select
+                value={form.programId}
+                onChange={(event) => setForm({ ...form, programId: event.target.value })}
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950 focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose Program --</option>
+                {(progs ?? [])
+                  .filter((p: any) => !form.universityId || p.university_id === form.universityId)
+                  .map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.universities?.name || 'Partner'})
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Application number">
+              <Input
+                value={form.applicationNumber}
+                onChange={(event) => setForm({ ...form, applicationNumber: event.target.value })}
+                placeholder="APP-10294"
+              />
+            </Field>
             
             <Field label="Pipeline Stage">
               <select

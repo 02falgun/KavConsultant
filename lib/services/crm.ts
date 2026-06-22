@@ -18,6 +18,8 @@ import {
   upsertTask,
   createActivityLog,
   updateStudentCounsellor,
+  listUniversities,
+  listPrograms,
 } from '@/lib/repositories/crm';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
 import type { InboxFilter } from '@/lib/constants/crm';
@@ -158,6 +160,71 @@ export async function getInboxPage(params: { page: number; pageSize: number; fil
   };
 }
 
+export async function getInboxPageCursor(params: { pageSize: number; cursor?: number; filter?: InboxFilter }) {
+  const context = await getWorkspaceContext();
+  if (!context) {
+    return { items: [], nextCursor: null };
+  }
+
+  // Fetch a sufficient size to paginate in memory
+  const [tasks, students] = await Promise.all([
+    listTasks({ tenantId: context.tenantId, page: 1, pageSize: 200, scope: 'all' }),
+    listStudents({ tenantId: context.tenantId, page: 1, pageSize: 200 }),
+  ]);
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+
+  const items = [
+    ...tasks.items.map((task: any) => ({
+      id: task.id,
+      title: task.title,
+      type: 'task' as const,
+      priority: task.priority,
+      filter: task.due_at ? (task.due_at.slice(0, 10) === today ? 'due_today' : new Date(task.due_at) < now ? 'overdue' : 'all') : 'all',
+      due_at: task.due_at,
+      created_at: task.created_at,
+      status: task.status,
+      assignee_name: task.users?.full_name ?? null,
+      student_name: task.students?.full_name ?? null,
+    })),
+    ...students.items
+      .filter((student: any) => student.status === 'new' || student.status === 'contacted')
+      .map((student: any) => ({
+        id: student.id,
+        title: student.full_name,
+        type: 'student' as const,
+        priority: student.lead_score > 70 ? 'urgent' : student.lead_score > 40 ? 'high' : 'medium',
+        filter: student.last_contacted_at ? 'stale' : 'unreachable',
+        due_at: student.last_contacted_at,
+        created_at: student.created_at,
+        status: student.status,
+        assignee_name: null,
+        student_name: student.full_name,
+      })),
+  ];
+
+  const filter = params.filter ?? 'all';
+  const filtered = filter === 'all' ? items : items.filter((item) => item.filter === filter || item.status === filter);
+
+  const sorted = filtered.sort((left, right) => {
+    const weights = { urgent: 0, high: 1, medium: 2, low: 3 } as const;
+    if (left.priority !== right.priority) {
+      return weights[left.priority as keyof typeof weights] - weights[right.priority as keyof typeof weights];
+    }
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
+  });
+
+  const startIndex = params.cursor ?? 0;
+  const paginatedItems = sorted.slice(startIndex, startIndex + params.pageSize);
+  const nextCursor = startIndex + params.pageSize < sorted.length ? startIndex + params.pageSize : null;
+
+  return {
+    items: paginatedItems,
+    nextCursor,
+  };
+}
+
 export async function getTasksPage(params: { page: number; pageSize: number; search?: string; scope?: 'all' | 'my' | 'team'; assigneeId?: string }) {
   const context = await requireWorkspaceContext();
   return listTasks({ tenantId: context.tenantId, ...params });
@@ -213,4 +280,14 @@ export async function assignStudentCounsellor(params: {
     tenantId: context.tenantId,
     ...params
   });
+}
+
+export async function getUniversities() {
+  const context = await requireWorkspaceContext();
+  return listUniversities({ tenantId: context.tenantId });
+}
+
+export async function getPrograms() {
+  const context = await requireWorkspaceContext();
+  return listPrograms({ tenantId: context.tenantId });
 }

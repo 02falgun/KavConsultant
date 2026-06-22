@@ -24,6 +24,7 @@ import { useStudents } from '@/hooks/use-students';
 import { useCrmStore } from '@/store/crm';
 import { deleteStudentAction, exportStudentsAction, importStudentsAction, saveStudentAction } from '@/server-actions/crm';
 import type { StudentRecord } from '@/lib/types/crm';
+import { StudentVirtualList } from './student-virtual-list';
 
 const emptyForm = {
   id: '',
@@ -231,84 +232,23 @@ export function StudentsWorkflow() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
-                    <tr className="text-left">
-                      <th className="py-3 px-4">Name</th>
-                      <th className="py-3 px-4">Contact</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Country</th>
-                      <th className="py-3 px-4">Score</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
-                    {students.map((student: StudentRecord & Record<string, any>) => (
-                      <tr key={student.id} className="hover:bg-slate-50/55 dark:hover:bg-slate-900/30">
-                        <td className="py-4 px-4 font-semibold text-slate-900 dark:text-slate-100">
-                          {student.full_name}
-                        </td>
-                        <td className="py-4 px-4 space-y-0.5">
-                          <p className="text-slate-950 dark:text-slate-200 text-xs">{student.email ?? '—'}</p>
-                          <p className="text-slate-400 text-[10px]">{student.phone ?? '—'}</p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                            {student.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-slate-600 dark:text-slate-400 text-xs">
-                          {student.preferred_country || '—'}
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            student.lead_score > 70
-                              ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/30'
-                              : student.lead_score > 40
-                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800'
-                          }`}>
-                            {student.lead_score}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-right space-x-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setForm({
-                              id: student.id,
-                              fullName: student.full_name,
-                              email: student.email ?? '',
-                              phone: student.phone ?? '',
-                              source: student.source,
-                              preferredCountry: student.preferred_country ?? '',
-                              branchId: '',
-                              assignedCounsellorId: '',
-                              leadScore: student.lead_score,
-                              notes: student.notes ?? '',
-                              tagsText: (student.tags ?? []).join(', ')
-                            })}
-                            className="h-8 w-8 text-slate-500 hover:text-slate-900"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(student.id)}
-                            className="h-8 w-8 text-slate-400 hover:text-rose-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <StudentVirtualList
+                students={students}
+                onEdit={(student) => setForm({
+                  id: student.id,
+                  fullName: student.full_name,
+                  email: student.email ?? '',
+                  phone: student.phone ?? '',
+                  source: student.source,
+                  preferredCountry: student.preferred_country ?? '',
+                  branchId: '',
+                  assignedCounsellorId: '',
+                  leadScore: student.lead_score,
+                  notes: student.notes ?? '',
+                  tagsText: (student.tags ?? []).join(', ')
+                })}
+                onDelete={handleDelete}
+              />
             )}
 
             {/* Pagination Panel */}
