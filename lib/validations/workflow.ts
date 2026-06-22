@@ -49,6 +49,19 @@ export const taskFormSchema = z.object({
   applicationId: z.string().uuid().optional().or(z.literal('')).nullable(),
 });
 
+export const universityFormSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(2).max(250),
+  country: z.string().min(1).max(120),
+  city: z.string().max(120).optional().or(z.literal('')).nullable(),
+  website: z.string().max(500).optional().or(z.literal('')).nullable(),
+  email: z.string().email().max(320).optional().or(z.literal('')).nullable(),
+  phone: z.string().max(32).optional().or(z.literal('')).nullable(),
+  type: z.enum(['university', 'college', 'institute', 'language_school', 'pathway_provider', 'vocational_school']),
+  ranking: z.coerce.number().int().positive().optional().nullable(),
+  description: z.string().max(2000).optional().or(z.literal('')).nullable(),
+});
+
 export const inboxFilterSchema = z.object({
   filter: z.enum(['all', 'new', 'due_today', 'overdue', 'unreachable', 'stale']).default('all'),
   sort: z.enum(['urgency', 'recent', 'oldest']).default('urgency'),

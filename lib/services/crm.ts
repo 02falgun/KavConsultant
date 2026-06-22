@@ -20,6 +20,8 @@ import {
   createActivityLog,
   updateStudentCounsellor,
   listUniversities,
+  upsertUniversity,
+  deleteUniversity,
   listPrograms,
 } from '@/lib/repositories/crm';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
@@ -298,6 +300,16 @@ export async function assignStudentCounsellor(params: {
 export async function getUniversities() {
   const context = await requireWorkspaceContext();
   return listUniversities({ tenantId: context.tenantId });
+}
+
+export async function createOrUpdateUniversity(input: Record<string, unknown>) {
+  const context = await requireWorkspaceContext();
+  return upsertUniversity({ tenantId: context.tenantId, university: input });
+}
+
+export async function removeUniversity(universityId: string) {
+  const context = await requireWorkspaceContext();
+  return deleteUniversity({ tenantId: context.tenantId, universityId });
 }
 
 export async function getPrograms() {

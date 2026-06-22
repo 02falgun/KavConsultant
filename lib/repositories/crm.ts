@@ -372,6 +372,24 @@ export async function listUniversities(params: { tenantId: string }) {
   return data ?? [];
 }
 
+export async function upsertUniversity(input: { tenantId: string; university: Record<string, unknown> }) {
+  const admin = createSupabaseAdminClient();
+  const payload = { ...input.university, tenant_id: input.tenantId };
+  const { data, error } = await admin.from('universities').upsert(payload).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteUniversity(params: { tenantId: string; universityId: string }) {
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from('universities')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('tenant_id', params.tenantId)
+    .eq('id', params.universityId);
+  if (error) throw error;
+}
+
 export async function listPrograms(params: { tenantId: string }) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin

@@ -1,13 +1,23 @@
 "use server";
 
 import { revalidatePath } from 'next/cache';
-import { createOrUpdateStudent, createOrUpdateApplication, createOrUpdateTask, exportStudentsCsv, importStudentsCsv, removeApplication, removeStudent, removeTask, readNotification, updateApplicationStage, logCrmActivity, assignStudentCounsellor } from '@/lib/services/crm';
-import { applicationFormSchema, studentFormSchema, taskFormSchema, uuidSchema, updateApplicationStageSchema, logActivitySchema, assignCounsellorSchema } from '@/lib/validations/workflow';
+import { createOrUpdateStudent, createOrUpdateApplication, createOrUpdateTask, exportStudentsCsv, importStudentsCsv, removeApplication, removeStudent, removeTask, readNotification, updateApplicationStage, logCrmActivity, assignStudentCounsellor, createOrUpdateUniversity, removeUniversity } from '@/lib/services/crm';
+import { applicationFormSchema, studentFormSchema, taskFormSchema, uuidSchema, updateApplicationStageSchema, logActivitySchema, assignCounsellorSchema, universityFormSchema } from '@/lib/validations/workflow';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
 
 export type CrmActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string; fieldErrors?: Record<string, string[]> };
+
+function slugifyName(name: string) {
+  const base = name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base || 'university'}-${suffix}`;
+}
 
 function cleanEmptyStrings(obj: any) {
   if (!obj || typeof obj !== 'object') return obj;
@@ -212,6 +222,53 @@ export async function logCrmActivityAction(params: {
     return { ok: true, data };
   } catch (error: any) {
     return { ok: false, error: error.message || 'Failed to log activity.' };
+  }
+}
+
+export async function saveUniversityAction(input: unknown): Promise<CrmActionResult> {
+  const cleaned = cleanEmptyStrings(input);
+  const parsed = universityFormSchema.safeParse(cleaned);
+  if (!parsed.success) {
+    return { ok: false, error: 'Invalid university data', fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  try {
+    const base = {
+      name: parsed.data.name,
+      country: parsed.data.country,
+      city: parsed.data.city || null,
+      website: parsed.data.website || null,
+      email: parsed.data.email || null,
+      phone: parsed.data.phone || null,
+      type: parsed.data.type,
+      ranking: parsed.data.ranking ?? null,
+      description: parsed.data.description || null,
+    };
+
+    // On create, generate a unique slug from the name. On update, leave the
+    // existing slug untouched by not including it in the payload.
+    const payload = parsed.data.id
+      ? { id: parsed.data.id, ...base }
+      : { ...base, slug: slugifyName(parsed.data.name) };
+
+    const data = await createOrUpdateUniversity(payload);
+    revalidatePath('/universities');
+    return { ok: true, data };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to save university.' };
+  }
+}
+
+export async function deleteUniversityAction(universityId: string): Promise<CrmActionResult> {
+  const parsed = uuidSchema.safeParse(universityId);
+  if (!parsed.success) return { ok: false, error: 'Invalid University ID format' };
+
+  try {
+    await removeUniversity(parsed.data);
+    revalidatePath('/universities');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to delete university.' };
   }
 }
 
