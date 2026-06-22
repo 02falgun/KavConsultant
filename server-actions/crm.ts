@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createOrUpdateStudent, createOrUpdateApplication, createOrUpdateTask, exportStudentsCsv, importStudentsCsv, removeApplication, removeStudent, removeTask, readNotification, updateApplicationStage, logCrmActivity, assignStudentCounsellor } from '@/lib/services/crm';
-import { applicationFormSchema, studentFormSchema, taskFormSchema } from '@/lib/validations/workflow';
+import { applicationFormSchema, studentFormSchema, taskFormSchema, uuidSchema, updateApplicationStageSchema, logActivitySchema, assignCounsellorSchema } from '@/lib/validations/workflow';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
 
 export type CrmActionResult<T = undefined> =
@@ -49,9 +49,16 @@ export async function saveStudentAction(input: unknown): Promise<CrmActionResult
 }
 
 export async function deleteStudentAction(studentId: string): Promise<CrmActionResult> {
-  await removeStudent(studentId);
-  revalidatePath('/students');
-  return { ok: true };
+  const parsed = uuidSchema.safeParse(studentId);
+  if (!parsed.success) return { ok: false, error: 'Invalid Student ID format' };
+
+  try {
+    await removeStudent(parsed.data);
+    revalidatePath('/students');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to delete student.' };
+  }
 }
 
 export async function importStudentsAction(csvText: string): Promise<CrmActionResult<{ imported: number }>> {
@@ -97,15 +104,29 @@ export async function saveApplicationAction(input: unknown): Promise<CrmActionRe
 }
 
 export async function updateApplicationStageAction(applicationId: string, stage: ApplicationPipelineStage): Promise<CrmActionResult> {
-  await updateApplicationStage(applicationId, stage);
-  revalidatePath('/applications');
-  return { ok: true };
+  const parsed = updateApplicationStageSchema.safeParse({ id: applicationId, stage });
+  if (!parsed.success) return { ok: false, error: 'Invalid stage update parameters.' };
+
+  try {
+    await updateApplicationStage(parsed.data.id, parsed.data.stage);
+    revalidatePath('/applications');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to update application stage.' };
+  }
 }
 
 export async function deleteApplicationAction(applicationId: string): Promise<CrmActionResult> {
-  await removeApplication(applicationId);
-  revalidatePath('/applications');
-  return { ok: true };
+  const parsed = uuidSchema.safeParse(applicationId);
+  if (!parsed.success) return { ok: false, error: 'Invalid Application ID format' };
+
+  try {
+    await removeApplication(parsed.data);
+    revalidatePath('/applications');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to delete application.' };
+  }
 }
 
 export async function saveTaskAction(input: unknown): Promise<CrmActionResult> {
@@ -115,33 +136,51 @@ export async function saveTaskAction(input: unknown): Promise<CrmActionResult> {
     return { ok: false, error: 'Invalid task data', fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  const data = await createOrUpdateTask({
-    id: parsed.data.id,
-    title: parsed.data.title,
-    description: parsed.data.description || null,
-    status: parsed.data.status,
-    priority: parsed.data.priority,
-    due_at: parsed.data.dueAt || null,
-    reminder_at: parsed.data.reminderAt || null,
-    assigned_user_id: parsed.data.assignedUserId || null,
-    student_id: parsed.data.studentId || null,
-    application_id: parsed.data.applicationId || null,
-  });
+  try {
+    const data = await createOrUpdateTask({
+      id: parsed.data.id,
+      title: parsed.data.title,
+      description: parsed.data.description || null,
+      status: parsed.data.status,
+      priority: parsed.data.priority,
+      due_at: parsed.data.dueAt || null,
+      reminder_at: parsed.data.reminderAt || null,
+      assigned_user_id: parsed.data.assignedUserId || null,
+      student_id: parsed.data.studentId || null,
+      application_id: parsed.data.applicationId || null,
+    });
 
-  revalidatePath('/tasks');
-  return { ok: true, data };
+    revalidatePath('/tasks');
+    return { ok: true, data };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to save task.' };
+  }
 }
 
 export async function deleteTaskAction(taskId: string): Promise<CrmActionResult> {
-  await removeTask(taskId);
-  revalidatePath('/tasks');
-  return { ok: true };
+  const parsed = uuidSchema.safeParse(taskId);
+  if (!parsed.success) return { ok: false, error: 'Invalid Task ID format' };
+
+  try {
+    await removeTask(parsed.data);
+    revalidatePath('/tasks');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to delete task.' };
+  }
 }
 
 export async function readNotificationAction(notificationId: string): Promise<CrmActionResult> {
-  await readNotification(notificationId);
-  revalidatePath('/notifications');
-  return { ok: true };
+  const parsed = uuidSchema.safeParse(notificationId);
+  if (!parsed.success) return { ok: false, error: 'Invalid Notification ID format' };
+
+  try {
+    await readNotification(parsed.data);
+    revalidatePath('/notifications');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to read notification.' };
+  }
 }
 
 export async function logCrmActivityAction(params: {
@@ -152,20 +191,50 @@ export async function logCrmActivityAction(params: {
   applicationId?: string;
   metadata?: Record<string, any>;
 }): Promise<CrmActionResult> {
-  const data = await logCrmActivity(params);
-  revalidatePath('/inbox');
-  revalidatePath('/students');
-  revalidatePath('/applications');
-  return { ok: true, data };
+  const cleaned = cleanEmptyStrings(params);
+  const parsed = logActivitySchema.safeParse(cleaned);
+  if (!parsed.success) {
+    return { ok: false, error: 'Invalid activity details', fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  try {
+    const data = await logCrmActivity({
+      activityType: parsed.data.activityType,
+      subject: parsed.data.subject,
+      description: parsed.data.description || undefined,
+      studentId: parsed.data.studentId || undefined,
+      applicationId: parsed.data.applicationId || undefined,
+      metadata: parsed.data.metadata || undefined,
+    });
+    revalidatePath('/inbox');
+    revalidatePath('/students');
+    revalidatePath('/applications');
+    return { ok: true, data };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to log activity.' };
+  }
 }
 
 export async function assignStudentCounsellorAction(params: {
   studentId: string;
   counsellorId: string | null;
 }): Promise<CrmActionResult> {
-  const data = await assignStudentCounsellor(params);
-  revalidatePath('/inbox');
-  revalidatePath('/students');
-  revalidatePath('/applications');
-  return { ok: true, data };
+  const cleaned = cleanEmptyStrings(params);
+  const parsed = assignCounsellorSchema.safeParse(cleaned);
+  if (!parsed.success) {
+    return { ok: false, error: 'Invalid assignment parameters', fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  try {
+    const data = await assignStudentCounsellor({
+      studentId: parsed.data.studentId,
+      counsellorId: parsed.data.counsellorId || null,
+    });
+    revalidatePath('/inbox');
+    revalidatePath('/students');
+    revalidatePath('/applications');
+    return { ok: true, data };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to assign counsellor.' };
+  }
 }

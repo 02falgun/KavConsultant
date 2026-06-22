@@ -62,3 +62,25 @@ export const auditLogFilterSchema = z.object({
   entityName: z.string().trim().optional(),
   actorUserId: z.string().uuid().optional(),
 });
+
+export const uuidSchema = z.string().uuid();
+
+export const updateApplicationStageSchema = z.object({
+  id: z.string().uuid(),
+  stage: z.enum(APPLICATION_PIPELINE_STAGES),
+});
+
+export const logActivitySchema = z.object({
+  activityType: z.string().min(1).max(50),
+  subject: z.string().min(1).max(250),
+  description: z.string().optional().or(z.literal('')).nullable(),
+  studentId: z.string().uuid().optional().or(z.literal('')).nullable(),
+  applicationId: z.string().uuid().optional().or(z.literal('')).nullable(),
+  metadata: z.record(z.any()).optional().nullable(),
+});
+
+export const assignCounsellorSchema = z.object({
+  studentId: z.string().uuid(),
+  counsellorId: z.string().uuid().optional().or(z.literal('')).nullable(),
+});
+
