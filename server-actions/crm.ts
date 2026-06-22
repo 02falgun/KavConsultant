@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from 'next/cache';
-import { createOrUpdateStudent, createOrUpdateApplication, createOrUpdateTask, exportStudentsCsv, importStudentsCsv, removeApplication, removeStudent, removeTask, readNotification, updateApplicationStage, logCrmActivity, assignStudentCounsellor, createOrUpdateUniversity, removeUniversity } from '@/lib/services/crm';
-import { applicationFormSchema, studentFormSchema, taskFormSchema, uuidSchema, updateApplicationStageSchema, logActivitySchema, assignCounsellorSchema, universityFormSchema } from '@/lib/validations/workflow';
+import { createOrUpdateStudent, createOrUpdateApplication, createOrUpdateTask, exportStudentsCsv, importStudentsCsv, removeApplication, removeStudent, removeTask, readNotification, updateApplicationStage, logCrmActivity, assignStudentCounsellor, createOrUpdateUniversity, removeUniversity, createOrUpdateProgram, removeProgram } from '@/lib/services/crm';
+import { applicationFormSchema, studentFormSchema, taskFormSchema, uuidSchema, updateApplicationStageSchema, logActivitySchema, assignCounsellorSchema, universityFormSchema, programFormSchema } from '@/lib/validations/workflow';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
 
 export type CrmActionResult<T = undefined> =
@@ -269,6 +269,51 @@ export async function deleteUniversityAction(universityId: string): Promise<CrmA
     return { ok: true };
   } catch (error: any) {
     return { ok: false, error: error.message || 'Failed to delete university.' };
+  }
+}
+
+export async function saveProgramAction(input: unknown): Promise<CrmActionResult> {
+  const cleaned = cleanEmptyStrings(input);
+  const parsed = programFormSchema.safeParse(cleaned);
+  if (!parsed.success) {
+    return { ok: false, error: 'Invalid program data', fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  try {
+    const fee = parsed.data.tuitionFee ?? null;
+    const base = {
+      university_id: parsed.data.universityId,
+      name: parsed.data.name,
+      degree_level: parsed.data.degreeLevel || null,
+      field_of_study: parsed.data.fieldOfStudy || null,
+      duration_months: parsed.data.durationMonths ?? null,
+      tuition_fee_min: fee,
+      tuition_fee_max: fee,
+    };
+
+    // On create, generate a unique code from the name. On update, leave it untouched.
+    const payload = parsed.data.id
+      ? { id: parsed.data.id, ...base }
+      : { ...base, code: slugifyName(parsed.data.name) };
+
+    const data = await createOrUpdateProgram(payload);
+    revalidatePath('/programs');
+    return { ok: true, data };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to save program.' };
+  }
+}
+
+export async function deleteProgramAction(programId: string): Promise<CrmActionResult> {
+  const parsed = uuidSchema.safeParse(programId);
+  if (!parsed.success) return { ok: false, error: 'Invalid Program ID format' };
+
+  try {
+    await removeProgram(parsed.data);
+    revalidatePath('/programs');
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Failed to delete program.' };
   }
 }
 

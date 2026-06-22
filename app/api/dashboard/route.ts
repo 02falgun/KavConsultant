@@ -49,109 +49,67 @@ export async function GET(request: Request) {
 
     const { data: tasks, error: tasksErr } = await tasksQuery;
 
-    const totalStudents = students?.length || 0;
-    const totalApps = applications?.length || 0;
+    const studentList = (students || []) as any[];
+    const applicationList = (applications || []) as any[];
+    const taskList = (tasks || []) as any[];
 
-    // Fallback to high-fidelity mock data if no database records exist
-    const hasData = totalStudents > 0 || totalApps > 0;
+    const totalStudents = studentList.length;
 
-    if (!hasData) {
-      return NextResponse.json({
-        kpis: {
-          newLeads: 42,
-          conversionRate: 64.2,
-          slaCompliance: 96.8,
-          avgResponseTime: '14m',
-          activePipeline: 18,
-          wonApplications: 12,
-          overdueTasks: 4,
-          staleLeads: 5,
-        },
-        charts: {
-          pipelineTrend: [
-            { name: 'Jan', count: 4 },
-            { name: 'Feb', count: 7 },
-            { name: 'Mar', count: 12 },
-            { name: 'Apr', count: 18 },
-            { name: 'May', count: 24 },
-            { name: 'Jun', count: 32 },
-          ],
-          sourceBreakdown: [
-            { name: 'Organic Search', value: 35 },
-            { name: 'Paid Ads', value: 25 },
-            { name: 'Referrals', value: 20 },
-            { name: 'Direct Website', value: 15 },
-            { name: 'Social/WhatsApp', value: 5 },
-          ],
-          countryConversion: [
-            { country: 'United Kingdom', rate: 72 },
-            { country: 'United States', rate: 58 },
-            { country: 'Canada', rate: 65 },
-            { country: 'Australia', rate: 61 },
-            { country: 'Germany', rate: 50 },
-          ],
-          responseTimeDistribution: [
-            { range: '< 5m', count: 18 },
-            { range: '5-15m', count: 15 },
-            { range: '15-30m', count: 6 },
-            { range: '30m-1h', count: 2 },
-            { range: '1h+', count: 1 },
-          ],
-        },
-      });
-    }
-
-    // Process real metrics
-    const newLeads = (students || []).filter((s: any) => s.status === 'new').length;
-    const enrolledLeads = (students || []).filter((s: any) => s.status === 'enrolled').length;
+    // Real KPI aggregations (all naturally zero on a fresh workspace).
+    const newLeads = studentList.filter((s: any) => s.status === 'new').length;
+    const enrolledLeads = studentList.filter((s: any) => s.status === 'enrolled').length;
     const conversionRate = totalStudents > 0 ? Math.round((enrolledLeads / totalStudents) * 100) : 0;
-    const activePipeline = (applications || []).filter((a: any) => a.status !== 'enrolled' && a.status !== 'closed_lost').length;
-    const wonApplications = (applications || []).filter((a: any) => a.status === 'enrolled' || a.status === 'offer_received').length;
+    const activePipeline = applicationList.filter((a: any) => a.status !== 'enrolled' && a.status !== 'closed_lost').length;
+    const wonApplications = applicationList.filter((a: any) => a.status === 'enrolled' || a.status === 'offer_received').length;
 
     const now = new Date();
-    const overdueTasks = (tasks || []).filter((t: any) => t.status !== 'done' && t.due_at && new Date(t.due_at) < now).length;
+    const overdueTasks = taskList.filter((t: any) => t.status !== 'done' && t.due_at && new Date(t.due_at) < now).length;
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const staleLeads = (students || []).filter(
+    const staleLeads = studentList.filter(
       (s: any) => (s.status === 'new' || s.status === 'contacted') && new Date(s.updated_at) < thirtyDaysAgo
     ).length;
 
-    // Real Chart Processing (Simple aggregations)
+    // Lead source distribution (real aggregation).
     const sourceMap: Record<string, number> = {};
-    (students || []).forEach((s: any) => {
+    studentList.forEach((s: any) => {
       const src = s.source || 'other';
       sourceMap[src] = (sourceMap[src] || 0) + 1;
     });
     const sourceBreakdown = Object.entries(sourceMap).map(([name, value]) => ({ name, value }));
 
+    // Conversion rate by preferred destination (real aggregation).
+    const countryTotals: Record<string, number> = {};
+    const countryEnrolled: Record<string, number> = {};
+    studentList.forEach((s: any) => {
+      if (!s.preferred_country) return;
+      countryTotals[s.preferred_country] = (countryTotals[s.preferred_country] || 0) + 1;
+      if (s.status === 'enrolled') {
+        countryEnrolled[s.preferred_country] = (countryEnrolled[s.preferred_country] || 0) + 1;
+      }
+    });
+    const countryConversion = Object.entries(countryTotals).map(([country, total]) => ({
+      country,
+      rate: total > 0 ? Math.round(((countryEnrolled[country] || 0) / total) * 100) : 0,
+    }));
+
     return NextResponse.json({
       kpis: {
         newLeads,
         conversionRate,
-        slaCompliance: 95.0, // Default constant/mock
-        avgResponseTime: '15m', // Default constant/mock
+        slaCompliance: 0,
+        avgResponseTime: '0m',
         activePipeline,
         wonApplications,
         overdueTasks,
         staleLeads,
       },
       charts: {
-        pipelineTrend: [
-          { name: 'Apr', count: Math.round(activePipeline * 0.6) },
-          { name: 'May', count: Math.round(activePipeline * 0.8) },
-          { name: 'Jun', count: activePipeline },
-        ],
+        pipelineTrend: [],
         sourceBreakdown,
-        countryConversion: [
-          { country: 'United Kingdom', rate: 70 },
-          { country: 'Canada', rate: 65 },
-        ],
-        responseTimeDistribution: [
-          { range: '< 5m', count: 12 },
-          { range: '5-15m', count: 8 },
-          { range: '15m+', count: 4 },
-        ],
+        countryConversion,
+        responseTimeDistribution: [],
       },
     });
   } catch (err: any) {

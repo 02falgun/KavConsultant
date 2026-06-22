@@ -23,6 +23,8 @@ import {
   upsertUniversity,
   deleteUniversity,
   listPrograms,
+  upsertProgram,
+  deleteProgram,
 } from '@/lib/repositories/crm';
 import type { ApplicationPipelineStage } from '@/lib/workflow/stages';
 import type { InboxFilter } from '@/lib/constants/crm';
@@ -315,4 +317,14 @@ export async function removeUniversity(universityId: string) {
 export async function getPrograms() {
   const context = await requireWorkspaceContext();
   return listPrograms({ tenantId: context.tenantId });
+}
+
+export async function createOrUpdateProgram(input: Record<string, unknown>) {
+  const context = await requireWorkspaceContext();
+  return upsertProgram({ tenantId: context.tenantId, program: input });
+}
+
+export async function removeProgram(programId: string) {
+  const context = await requireWorkspaceContext();
+  return deleteProgram({ tenantId: context.tenantId, programId });
 }

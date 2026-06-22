@@ -16,42 +16,44 @@ import {
 import {
   BarChart3,
   Download,
-  Calendar,
   Filter,
   FileText,
   Bookmark,
-  ChevronRight,
   TrendingUp,
   UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+type LeadConversionPoint = { date: string; leads: number; applications: number; enrollments: number };
+type CounselorPerformancePoint = { name: string; leads: number; conversions: number };
+type SavedReport = { title: string; description: string };
+
 export function AnalyticsWorkflow() {
   const [dateRange, setDateRange] = useState('30d');
 
-  const leadConversionData = [
-    { date: '06-01', leads: 12, applications: 8, enrollments: 4 },
-    { date: '06-03', leads: 19, applications: 10, enrollments: 5 },
-    { date: '06-05', leads: 15, applications: 12, enrollments: 6 },
-    { date: '06-07', leads: 22, applications: 14, enrollments: 8 },
-    { date: '06-09', leads: 30, applications: 18, enrollments: 11 },
-    { date: '06-11', leads: 25, applications: 20, enrollments: 14 },
-  ];
+  // No analytics data is generated yet on a fresh workspace.
+  const leadConversionData: LeadConversionPoint[] = [];
+  const counselorPerformance: CounselorPerformancePoint[] = [];
+  const savedReports: SavedReport[] = [];
 
-  const counselorPerformance = [
-    { name: 'Sarah Jenkins', leads: 42, conversions: 28 },
-    { name: 'David Miller', leads: 35, conversions: 20 },
-    { name: 'Anish Sharma', leads: 50, conversions: 35 },
-    { name: 'Elena Rostova', leads: 28, conversions: 15 },
-  ];
+  const hasConversionData = leadConversionData.length > 0;
+  const hasPerformanceData = counselorPerformance.length > 0;
 
   const handleExportCSV = () => {
-    alert("Exporting analytics metrics in CSV format...");
+    if (!hasConversionData && !hasPerformanceData) {
+      alert('No analytics data to export yet.');
+      return;
+    }
+    alert('Exporting analytics metrics in CSV format...');
   };
 
   const handleExportPDF = () => {
-    alert("Exporting analytics report as print-ready PDF...");
+    if (!hasConversionData && !hasPerformanceData) {
+      alert('No analytics data to export yet.');
+      return;
+    }
+    alert('Exporting analytics report as print-ready PDF...');
   };
 
   return (
@@ -100,18 +102,22 @@ export function AnalyticsWorkflow() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={leadConversionData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800" />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Legend iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px' }} />
-                <Line type="monotone" dataKey="leads" stroke="#6366f1" strokeWidth={2} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="applications" stroke="#3b82f6" strokeWidth={2} />
-                <Line type="monotone" dataKey="enrollments" stroke="#10b981" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            {hasConversionData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={leadConversionData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800" />
+                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Legend iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px' }} />
+                  <Line type="monotone" dataKey="leads" stroke="#6366f1" strokeWidth={2} activeDot={{ r: 6 }} />
+                  <Line type="monotone" dataKey="applications" stroke="#3b82f6" strokeWidth={2} />
+                  <Line type="monotone" dataKey="enrollments" stroke="#10b981" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart message="No conversion data yet. Metrics will appear as leads and applications are created." />
+            )}
           </CardContent>
         </Card>
 
@@ -124,10 +130,16 @@ export function AnalyticsWorkflow() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-2.5">
-            <ReportLink title="Q2 Enrollment Forecast" description="Generated 2 days ago" />
-            <ReportLink title="Adwords Campaign ROI" description="Generated 1 week ago" />
-            <ReportLink title="Counsellor Lead Response Times" description="Generated 3 weeks ago" />
-            <ReportLink title="Canada Visa Approval Rates" description="Generated 1 month ago" />
+            {savedReports.length === 0 ? (
+              <div className="py-10 text-center">
+                <Bookmark className="h-8 w-8 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <p className="text-xs text-slate-400">No saved reports yet.</p>
+              </div>
+            ) : (
+              savedReports.map((report) => (
+                <ReportLink key={report.title} title={report.title} description={report.description} />
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -140,20 +152,33 @@ export function AnalyticsWorkflow() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={counselorPerformance}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Legend iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="leads" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} name="Assigned Leads" />
-                <Bar dataKey="conversions" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Successful Enrollments" />
-              </BarChart>
-            </ResponsiveContainer>
+            {hasPerformanceData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={counselorPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={11} axisLine={false} tickLine={false} />
+                  <Tooltip />
+                  <Legend iconType="circle" iconSize={6} wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar dataKey="leads" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} name="Assigned Leads" />
+                  <Bar dataKey="conversions" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Successful Enrollments" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart message="No counselor performance data yet. Assign leads to your team to populate this chart." />
+            )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function EmptyChart({ message }: { message: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center">
+      <BarChart3 className="h-10 w-10 text-slate-300 dark:text-slate-700 mb-3" />
+      <p className="text-sm text-slate-400 max-w-xs">{message}</p>
     </div>
   );
 }
@@ -168,7 +193,6 @@ function ReportLink({ title, description }: { title: string; description: string
         <p className="font-bold text-slate-900 dark:text-slate-100">{title}</p>
         <span className="text-[10px] text-slate-400 block pt-0.5">{description}</span>
       </div>
-      <ChevronRight className="h-4 w-4 text-slate-400" />
     </button>
   );
 }

@@ -402,3 +402,21 @@ export async function listPrograms(params: { tenantId: string }) {
   return data ?? [];
 }
 
+export async function upsertProgram(input: { tenantId: string; program: Record<string, unknown> }) {
+  const admin = createSupabaseAdminClient();
+  const payload = { ...input.program, tenant_id: input.tenantId };
+  const { data, error } = await admin.from('programs').upsert(payload).select('*, universities(name)').single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteProgram(params: { tenantId: string; programId: string }) {
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
+    .from('programs')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('tenant_id', params.tenantId)
+    .eq('id', params.programId);
+  if (error) throw error;
+}
+

@@ -62,6 +62,16 @@ export const universityFormSchema = z.object({
   description: z.string().max(2000).optional().or(z.literal('')).nullable(),
 });
 
+export const programFormSchema = z.object({
+  id: z.string().uuid().optional(),
+  universityId: z.string().uuid(),
+  name: z.string().min(2).max(250),
+  degreeLevel: z.string().max(120).optional().or(z.literal('')).nullable(),
+  fieldOfStudy: z.string().max(120).optional().or(z.literal('')).nullable(),
+  durationMonths: z.coerce.number().int().positive().max(120).optional().nullable(),
+  tuitionFee: z.coerce.number().min(0).optional().nullable(),
+});
+
 export const inboxFilterSchema = z.object({
   filter: z.enum(['all', 'new', 'due_today', 'overdue', 'unreachable', 'stale']).default('all'),
   sort: z.enum(['urgency', 'recent', 'oldest']).default('urgency'),
