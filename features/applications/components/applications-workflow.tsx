@@ -38,7 +38,7 @@ const emptyForm = {
   universityId: '',
   programId: '',
   applicationNumber: '',
-  stage: 'new' as ApplicationPipelineStage,
+  stage: 'NEW' as ApplicationPipelineStage,
   intakeTerm: '',
   intakeYear: '',
   feeAmount: '',
